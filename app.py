@@ -8,7 +8,7 @@ from functools import partial
 from utils.gen_funcs import create_wrapper, evaluate, mate, mutate, create_pop, evaluate_multiple, varOr, select
 from utils.data_funcs import load_data, calc_cost_mats
 
-
+# python -m streamlit run app.py
 # Load dataframes
 dataframes = load_data()
 fuel_opt_demand, buy_cost_mat, insure_cost_mat, maintaine_cost_mat, sell_cost_mat, emissions_constraint_arr, min_veh_dict, max_evs_dict, fuel_cost_mat, fuel_cost_residual_mat, emissions_cost_mat, emissions_residual_mat, excess_range_arr = calc_cost_mats(dataframes)
@@ -45,6 +45,10 @@ def optimization_task(params):
 def optimize_individual(toolbox, n_gen):
     num_allowable_veh_sold_per_year = np.array([39., 40., 41., 42., 43., 44., 46., 46., 47., 49., 50., 51., 52., 54., 55., 57.])
     type_sum_mat = np.array([[1.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,1.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,1.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,1.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,1.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,1.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,1.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,1.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,1.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,1.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,1.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,1.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,1.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,1.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,1.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,1.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.]], dtype=np.float64)
+    selling_constraint_arr = np.array([39., 40., 41., 42., 43., 44., 46., 46., 47., 49., 50., 51., 52., 54., 55., 57.])
+    max_evs_allowed_arr = np.array([[9,  10, 30,  1],[9,  10, 31,  1],[9,  11, 31,  1],[38, 25, 67,  8],[40, 25, 69,  9],[41, 26, 71,  9],[81, 37, 91,  11],[82, 37, 91,  11],[84, 37, 92,  11],[93, 41, 100, 13],[95, 42, 102, 13],[97, 43, 105, 13],[98, 44, 108, 14],[102,46, 109, 14],[104,47, 112, 14],[108,49, 116, 14]])
+    ev_sum_mat = np.array([[1.,0.,0.,0.],[0.,0.,0.,0.],[0.,0.,0.,0.],[0.,0.,0.,0.],[0.,0.,0.,0.],[0.,1.,0.,0.],[0.,0.,0.,0.],[0.,0.,0.,0.],[0.,0.,0.,0.],[0.,0.,0.,0.],[0.,0.,1.,0.],[0.,0.,0.,0.],[0.,0.,0.,0.],[0.,0.,0.,0.],[0.,0.,0.,0.],[0.,0.,0.,1.],[0.,0.,0.,0.],[0.,0.,0.,0.],[0.,0.,0.,0.],[0.,0.,0.,0.]], dtype=np.float64)
+
     #######PARAMETERS#######
     #Population Size
     pop_size = 20000
@@ -90,7 +94,7 @@ st.dataframe(dataframes[selected_df])
 
 st.header("Run Fleet Optimization")
 st.subheader("First Optimization Step")
-st.session_state.ngen = st.number_input("Select number of generations to run", min_value=0, max_value=100, value=50)
+st.session_state.ngen = st.number_input("Select number of generations to run", min_value=1, max_value=5000, value=200)
 st.write(f"Number: {st.session_state.ngen}")
 
 if st.button("Start Optimization"):
@@ -101,6 +105,6 @@ if st.button("Start Optimization"):
     for current_gen, fitness in optimize_individual(toolbox, st.session_state.ngen):
         progress_percent = current_gen/st.session_state.ngen
         progress_bar.progress(progress_percent)
-        status_text.text(f"Generation {current_gen} completed with fitness {fitness}")
+        status_text.text(f"Generation {current_gen} completed with a minimum fitness of {fitness}")
     
     status_text.text("Optimization complete!")

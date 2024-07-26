@@ -200,12 +200,13 @@ def evaluate(individual, buy_cost_mat, insure_cost_mat, maintaine_cost_mat, fuel
     selling_violations_count = np.sum(selling_comparison) 
     if selling_violations_count > 0:
         fitness = 2760000000.0 + selling_violations_count * 100000000.0
-        return (fitness,)
+        return fitness
     # CHECK EVS
+
     #FUEL AND EMISSIONS
     fuel_cost = calc_fuel_cost(individual,fuel_cost_mat,emissions_cost_mat, emissions_constraint_arr,excess_range_arr,fuel_cost_residual_mat,emissions_residual_mat)
     if fuel_cost == 3000000000.0:
-        return (fuel_cost,)
+        return fuel_cost
     indv_types = np.zeros((16,16,12))
     total_evs_per_year = np.zeros((16,4))
     for depth_idx in range(len(indv_types[:,:,:])):
@@ -223,7 +224,7 @@ def evaluate(individual, buy_cost_mat, insure_cost_mat, maintaine_cost_mat, fuel
     maintaine_cost = np.sum(indv_types*maintaine_cost_mat)
     sell_cost = np.sum(sold_arr*sell_cost_mat)
     fitness = buy_cost + insure_cost + maintaine_cost + fuel_cost + sell_cost + 100000000*evs_over_count
-    return (fitness,)
+    return fitness
 
 @njit
 def mate(ind1, ind2):
@@ -233,7 +234,8 @@ def mate(ind1, ind2):
     return ind1, ind2
 
 @njit
-def mutate(individual, min_veh_req_arr, max_evs_allowed_arr, num_allowable_veh_sold_per_year,type_sum_mat):
+#UPDATE SIZE RANGE!!!!!!!!!!!!!!!
+def mutate(individual, num_allowable_veh_sold_per_year, type_sum_mat):
     reduced_idv = np.zeros((16,16,12))
     number_sold_mat = get_sold_arr(individual)
     mute_roll = np.random.randint(0,3)
@@ -301,6 +303,8 @@ def mutate(individual, min_veh_req_arr, max_evs_allowed_arr, num_allowable_veh_s
                     negative_positions = np.where(depth_view < 0)
                     if len(negative_positions[0]) > 0:
                         current_depth = year_roll+current_service_years+1+view_i
+                        #neg_row = negative_positions[0][0]
+                        #neg_col = negative_positions[1][0]
                         pos_positions = np.column_stack(np.where(depth_view > 0))                    
                         #Repair neg index:
                         reduced_idv[current_depth:,veh_selected_row,size_roll*3 + veh_selected_col] = reduced_idv[current_depth:,veh_selected_row,size_roll*3 + veh_selected_col] + 1
@@ -377,8 +381,10 @@ def mutate(individual, min_veh_req_arr, max_evs_allowed_arr, num_allowable_veh_s
         size_roll = np.random.randint(0,4)
         type_roll = np.random.randint(0,3)
         alt_types_map = [[1,2],[0,2],[0,1]]
+        #pop_out_fuel_roll = np.random.randint(0,2)
         first_year_slice = reduced_idv[year_roll,year_roll,size_roll*3:size_roll*3+3]
         max_reass = first_year_slice[alt_types_map[type_roll][0]] + first_year_slice[alt_types_map[type_roll][1]]
+        #print(reduced_idv[year_roll:,year_roll,size_roll*3:size_roll*3+3])
         if max_reass > 0:
             alt_type_1_current_val = int(first_year_slice[alt_types_map[type_roll][0]])
             alt_type_2_current_val = int(first_year_slice[alt_types_map[type_roll][1]])
@@ -396,6 +402,7 @@ def mutate(individual, min_veh_req_arr, max_evs_allowed_arr, num_allowable_veh_s
                 if alt_2_value < 0:
                     reduced_idv[year_roll+row_idx:,year_roll,size_roll*3+type_roll] += alt_2_value
                     reduced_idv[year_roll+row_idx:,year_roll,size_roll*3+alt_types_map[type_roll][1]] -= alt_2_value
+            #print(reduced_idv[year_roll:,year_roll,size_roll*3:size_roll*3+3])
             for row_idx,reduced_row in enumerate(reduced_idv[year_roll:,year_roll,size_roll*3:size_roll*3+3]):
                 row_evs = reduced_row[0]
                 row_hvo = np.random.randint(0,int(reduced_row[1])+1)
@@ -404,7 +411,7 @@ def mutate(individual, min_veh_req_arr, max_evs_allowed_arr, num_allowable_veh_s
                 row_biolng = reduced_row[2] - row_lng
                 poped_row = np.array([row_evs,row_hvo,row_b20,row_lng,row_biolng])
                 individual[year_roll+row_idx,year_roll,size_roll*5:size_roll*5+5] = poped_row
-    return individual,
+    return individual
 
 @njit
 def create_pop(pop_size):
