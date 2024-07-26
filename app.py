@@ -5,7 +5,7 @@ import numpy as np
 import math
 from deap import base, creator, tools, algorithms
 from functools import partial
-from utils.gen_funcs import get_sold_arr, create_wrapper, create_individual, calc_fuel_cost, evaluate, mate, mutate
+from utils.gen_funcs import create_wrapper, evaluate, mate, mutate, create_pop, evaluate_multiple, varOr, select
 from utils.data_funcs import load_data, calc_cost_mats
 
 
@@ -43,6 +43,8 @@ def optimization_task(params):
         yield f"Progress: {i * 10}%"
 
 def optimize_individual(toolbox, n_gen):
+    num_allowable_veh_sold_per_year = np.array([39., 40., 41., 42., 43., 44., 46., 46., 47., 49., 50., 51., 52., 54., 55., 57.])
+    type_sum_mat = np.array([[1.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,1.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,1.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,1.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,1.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,1.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,1.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,1.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,1.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,1.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,1.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,1.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,1.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,1.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,1.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,1.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.]], dtype=np.float64)
     #######PARAMETERS#######
     #Population Size
     pop_size = 20000
@@ -59,35 +61,24 @@ def optimize_individual(toolbox, n_gen):
     ########################
 
     # Stats for convergence check
-    stats = tools.Statistics(lambda ind: ind.fitness.values)
-    stats.register("min", min)
-    pop = toolbox.population(n=pop_size)
-    hof = tools.HallOfFame(1, similar=np.array_equal)
-    # Evaluate the individuals with an invalid fitness
-    invalid_ind = [ind for ind in pop if not ind.fitness.valid]
-    fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)
-    for ind, fit in zip(invalid_ind, fitnesses):
-        ind.fitness.values = fit
-    if hof is not None:
-        hof.update(pop)
-    record = stats.compile(pop) if stats is not None else {}
+    pop = create_pop(pop_size=mu+lambda_)
+    # Evaluate the individuals
+    pop_fitnesses = evaluate_multiple(pop,buy_cost_mat, insure_cost_mat, maintaine_cost_mat, fuel_cost_mat,sell_cost_mat, emissions_cost_mat, emissions_constraint_arr,type_sum_mat,excess_range_arr,fuel_cost_residual_mat,emissions_residual_mat,selling_constraint_arr,max_evs_allowed_arr,ev_sum_mat)
     # Begin the generational process
     for gen in range(1, n_gen + 1):
         # Vary the population
-        offspring = algorithms.varOr(pop, toolbox, lambda_, prob_mating, prob_mutating)
+        offspring = varOr(pop, lambda_, prob_mating, prob_mutating, num_allowable_veh_sold_per_year, type_sum_mat)
         # Evaluate the individuals with an invalid fitness
-        invalid_ind = [ind for ind in offspring if not ind.fitness.valid]
-        fitnesses = toolbox.map(toolbox.evaluate, invalid_ind)        
-        # the slow part
-        for ind, fit in zip(invalid_ind, fitnesses):
-            ind.fitness.values = fit
-        if hof is not None:
-            hof.update(offspring)
+        offspring_fitnesses = evaluate_multiple(offspring, buy_cost_mat, insure_cost_mat, maintaine_cost_mat, fuel_cost_mat,sell_cost_mat, emissions_cost_mat, emissions_constraint_arr,type_sum_mat,excess_range_arr,fuel_cost_residual_mat,emissions_residual_mat,selling_constraint_arr,max_evs_allowed_arr,ev_sum_mat)
+        pop = pop + offspring
         # Select the next generation population
-        pop[:] = toolbox.select(pop + offspring, mu)
+        pop_fitnesses = np.concatenate((pop_fitnesses, offspring_fitnesses))
+        selected_idxs = select(pop_fitnesses,mu)
+        pop = [pop[i] for i in selected_idxs]
+        pop_fitnesses = [pop_fitnesses[i] for i in selected_idxs]
         # Update the statistics with the new population
-        record = stats.compile(pop) if stats is not None else {}
-        min_fitness = record["min"][0]
+        hof_idv = pop[0]
+        min_fitness = pop_fitnesses[0]
         #print(f"Generation {gen} best fitness = {min_fitness}")
         yield gen, min_fitness
 
