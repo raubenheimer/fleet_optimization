@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 import numpy as np
 import math
+from .gen_funcs import get_sold_arr
 
 @st.cache_data
 def load_data():
@@ -201,3 +202,59 @@ def calc_cost_mats(dataframes):
             excess_range_arr[year_idx,size_idx*4:size_idx*4+4] =  residuals
 
     return (fuel_opt_demand, buy_cost_mat, insure_cost_mat, maintaine_cost_mat, sell_cost_mat, emissions_constraint_arr, min_veh_dict, max_evs_dict, fuel_cost_mat, fuel_cost_residual_mat, emissions_cost_mat, emissions_residual_mat, excess_range_arr)
+
+def construct_buy_sell_df(indvidual):
+    # Year | ID | Num_Vehicles | Type | Fuel | Distance_bucket | Distance_per_vehicle(km)
+    indv_types = np.zeros((16,16,12))
+    type_sum_mat = np.array([[1.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,1.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,1.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,1.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,1.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,1.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,1.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,1.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,1.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,1.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,1.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,1.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,1.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,1.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,1.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,1.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.]], dtype=np.float64)
+    for depth_idx in range(len(indv_types[:,:,:])):
+        indv_types[depth_idx] = indvidual[depth_idx] @ type_sum_mat
+    header = ["Year","ID","Num_Vehicles","Type","Fuel","Distance_bucket","Distance_per_vehicle(km)"]
+    bought_list = []
+    ids = ["BEV_S1_","Diesel_S1_","LNG_S1_","BEV_S2_","Diesel_S2_","LNG_S2_","BEV_S3_","Diesel_S3_","LNG_S3_","BEV_S4_","Diesel_S4_","LNG_S4_"]
+    # Format Buys
+    for year_idx, vehs_in_year in enumerate(indv_types):
+        year = year_idx + 2023
+        vehs_bought = vehs_in_year[year_idx,:]
+        for id_idx,veh in enumerate(vehs_bought):
+            if veh > 0:
+                veh_buy_row = [year,f"{ids[id_idx]}{year}",veh,"Buy","","",0]
+                bought_list.append(veh_buy_row)
+    buy_df = pd.DataFrame(bought_list,columns=header)
+    # Format Sells
+    sold_list = []
+    sold_arr = get_sold_arr(indv_types)
+    for year_idx, sold_in_year in enumerate(sold_arr):
+        year = year_idx + 2023
+        for sold_year_idx, sold_in_row in enumerate(sold_in_year):
+            if sold_year_idx > year_idx:
+                break
+            for id_idx,sold_veh in enumerate(sold_in_row):
+                if sold_veh < 0:
+                    veh_sell_row = [year,f"{ids[id_idx]}{sold_year_idx+2023}",-sold_veh,"Sell","","",0]
+                    sold_list.append(veh_sell_row)
+    sell_df = pd.DataFrame(sold_list,columns=header)
+    return pd.concat([buy_df,sell_df])
+    
+
+def construct_fuel_df(fuel_opt_dict):
+    fuel_map = ["Electricity","HVO","B20","LNG","BioLNG"]
+    headers = ["Year","ID","Num_Vehicles","Type","Fuel","Distance_bucket","Distance_per_vehicle(km)"]
+    veh_type_map = ["BEV","Diesel","Diesel","LNG","LNG"]
+    rows_list = []
+    for year_idx in fuel_opt_dict:
+        print(year_idx)
+        for slot in fuel_opt_dict[year_idx]:
+            year = year_idx + 2023
+            veh_id = f"{veh_type_map[slot[4]]}_S{slot[0]+1}_{slot[2]+2023}"
+            num_veh = 1
+            sub_type = "Use"
+            fuel = fuel_map[slot[4]]
+            distance_bucket = f"D{slot[1]+1}"
+            distance_veh = slot[3]
+            rows_list.append([year,veh_id,num_veh,sub_type,fuel,distance_bucket,distance_veh])
+    return pd.DataFrame(rows_list,columns=headers)
+
+@st.cache_data
+def convert_df_to_csv(df):
+    return df.to_csv(index=False).encode('utf-8')

@@ -15,8 +15,6 @@ At the "last year of period of evaluation" our eval script automatically sells e
 "Last year of period of evaluation" for public is 2028 and private is 2038.
 '''
 
-
-
 np.set_printoptions(threshold=np.inf,linewidth=100)
 
 
@@ -298,13 +296,6 @@ def evaluate(individual, buy_cost_mat, insure_cost_mat, maintaine_cost_mat, fuel
 
 @njit
 def mate(ind1, ind2):
-    # roll size swaps
-    #swap_roll_arr = np.random.choice(4, 2, replace=False)
-    #swap_roll_1 = swap_roll_arr[0] 
-    #swap_roll_2 = swap_roll_arr[1] 
-    #ind1[:, :, swap_roll_1*5:swap_roll_1*5+5], ind2[:, :, swap_roll_1*5:swap_roll_1*5+5] = ind2[:, :, swap_roll_1*5:swap_roll_1*5+5].copy(), ind1[:, :, swap_roll_1*5:swap_roll_1*5+5].copy()
-    #ind1[:, :, swap_roll_2*5:swap_roll_2*5+5], ind2[:, :, swap_roll_2*5:swap_roll_2*5+5] = ind2[:, :, swap_roll_2*5:swap_roll_2*5+5].copy(), ind1[:, :, swap_roll_2*5:swap_roll_2*5+5].copy()
-
     swap_roll_1 = np.random.randint(0,4)
     ind1[:, :, swap_roll_1*5:swap_roll_1*5+5], ind2[:, :, swap_roll_1*5:swap_roll_1*5+5] = ind2[:, :, swap_roll_1*5:swap_roll_1*5+5].copy(), ind1[:, :, swap_roll_1*5:swap_roll_1*5+5].copy()
     return ind1, ind2

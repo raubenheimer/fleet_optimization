@@ -23,11 +23,6 @@ def get_sold_arr(indv):
                 break
     return num_veh_sold_mat
 
-
-def create_wrapper():
-    indv = creator.Individual(create_individual())
-    return indv
-
 @njit
 def create_individual():
     num_years = 16
@@ -461,3 +456,157 @@ def varOr(population, lambda_, cxpb, mutpb, num_allowable_veh_sold_per_year, typ
 def select(pop_fitnesses,mu):
     sorted_indices = np.argsort(pop_fitnesses)    
     return sorted_indices[:mu]
+
+
+@njit
+def fuel_evaluate(individual,year_fuel_costs_mat,year_fuel_emissions_mat,emissions_cap):
+    fuel_cost = 0
+    emissions = 0
+    for i,slot in enumerate(individual):
+        slot_size = slot[0]
+        slot_bucket = slot[1]
+        slot_model_year = slot[2]
+        slot_range = slot[3]
+        slot_fuel = slot[4]
+        fuel_cost += year_fuel_costs_mat[slot_model_year,(slot_size*5)+slot_fuel]*slot_range
+        emissions += year_fuel_emissions_mat[slot_model_year,(slot_size*5)+slot_fuel]*slot_range
+        if slot_fuel  == 0 and slot_model_year < 9:
+            if slot_model_year <= 2 and slot_bucket > 0:
+                fuel_cost += 500000
+            elif slot_model_year <= 5 and slot_bucket > 1:
+                fuel_cost += 500000
+            elif slot_model_year <= 8 and slot_bucket > 2:
+                fuel_cost += 500000
+    if emissions > emissions_cap:
+        fitness = fuel_cost + 500000
+    else:
+        fitness = fuel_cost
+    return fitness
+
+#### EV | DIESEL | LNG
+
+#### Electricity |  HVO | B20 | LNG | BioLNG
+
+@njit
+def fuel_create_individual(slots, all_available_veh_arr):
+    ### Size | Bucket | Year Bought | Demand | Fuel
+    slots = slots.copy()
+    all_available_veh_arr = all_available_veh_arr.copy()
+    for slot in slots:
+        slot_size = slot[0]
+        veh_selection_slice = all_available_veh_arr[:,slot_size*3:slot_size*3+3]
+        non_zero_indices = np.argwhere(veh_selection_slice > 0)
+        if non_zero_indices.size > 0:
+            idx = np.random.randint(non_zero_indices.shape[0])
+            row, col = non_zero_indices[idx]
+            veh_selection_slice[row, col] -= 1
+        else:
+            raise ValueError("Deducted more vehs than possible")
+        slot[2] = row
+        if col == 0:
+            slot[4] = 0
+        elif col == 1:
+            slot[4] = np.random.randint(1,3)
+        else:
+            slot[4] = np.random.randint(3,5)
+    
+    individual = slots
+    return individual
+
+@njit                
+def fuel_mutate(individual, size_cut_offs):
+    fuel_map = [0,2,1,4,3]
+    flip_selected = np.random.randint(0,2)
+    for size_idx in range(4):
+        size_slots = individual[size_cut_offs[size_idx]:size_cut_offs[size_idx+1]]
+        #if flip_selected:
+        # Flip Fuel Choice roll
+        slot_selected = np.random.randint(0,len(size_slots))
+        current_fuel = size_slots[slot_selected,4]
+        size_slots[slot_selected,4] = fuel_map[current_fuel]
+        #else:
+        # Switch veh between slots roll
+        switch_selected = np.random.choice(np.arange(1, len(size_slots)), size=2, replace=False)
+        slot_1 = size_slots[switch_selected[0]].copy()
+        slot_2 = size_slots[switch_selected[1]].copy()
+        size_slots[switch_selected[0],2] = slot_2[2]
+        size_slots[switch_selected[0],4] = slot_2[4]
+        size_slots[switch_selected[1],2] = slot_1[2]
+        size_slots[switch_selected[1],4] = slot_1[4]
+        #print(f"size {size_idx}, flippded: {slot_selected}, switched: {switch_selected[1]},{switch_selected[0]}")
+    return individual
+
+@njit                
+def fuel_mate(individual_1,individual_2, size_cut_offs):
+    # size switch roll
+    num_sizes_to_switch = np.random.randint(1,4)
+    #size_selected = np.random.randint(0,4)
+    sizes_selected = np.random.choice(np.array([0,1,2,3]), size=num_sizes_to_switch, replace=False)
+    for size_selected in sizes_selected:
+        start_idx = size_cut_offs[size_selected]
+        end_idx = size_cut_offs[size_selected+1]
+        switched_segement_2 = individual_2[start_idx:end_idx].copy()
+        individual_1[start_idx:end_idx] = switched_segement_2
+    return individual_1
+
+@njit
+def fuel_create_pop(pop_size,slots, all_available_veh_arr):
+    pop = []
+    for _ in range(pop_size):
+        pop.append(fuel_create_individual(slots, all_available_veh_arr))
+    return pop
+
+@njit(parallel=True)
+def fuel_evaluate_multiple(pop,year_fuel_costs_mat,year_fuel_emissions_mat,emissions_cap):
+    fitnesses = np.zeros(len(pop))
+    for i in prange(len(pop)):
+        fitnesses[i] = fuel_evaluate(pop[i],year_fuel_costs_mat,year_fuel_emissions_mat,emissions_cap)
+    return fitnesses
+
+@njit
+def fuel_varOr(population, lambda_, cxpb, mutpb, size_cut_offs):
+    assert (cxpb + mutpb) <= 1.0, (
+        "The sum of the crossover and mutation probabilities must be smaller "
+        "or equal to 1.0.")
+    pop_size = len(population)
+    offspring = []
+    for i in range(lambda_):
+        op_choice = np.random.random()
+        # Apply crossover
+        if op_choice < cxpb:
+            mate_idxs = np.random.choice(pop_size, 2, replace=False)
+            ind1 = population[mate_idxs[0]]
+            ind2 = population[mate_idxs[1]]
+            ind1 = fuel_mate(ind1, ind2, size_cut_offs)
+            offspring.append(ind1)
+        # Apply mutation    
+        elif op_choice < cxpb + mutpb:        
+            mutate_idx = np.random.randint(0, pop_size)
+            ind = np.copy(population[mutate_idx])
+            ind = fuel_mutate(ind, size_cut_offs)
+            offspring.append(ind)
+        # Apply reproduction    
+        else:                
+            rep_idx = np.random.choice(pop_size)
+            ind = np.copy(population[rep_idx])
+            offspring.append(ind)
+    return offspring
+
+@njit
+def fuel_select(pop_fitnesses,mu):
+    sorted_indices = np.argsort(pop_fitnesses)    
+    return sorted_indices[:mu]
+
+@njit
+def fuel_iter_gen(pop, pop_fitnesses, mu, lambda_, prob_mating, prob_mutating, size_cut_offs,year_fuel_costs_mat,year_fuel_emissions_mat,emissions_cap):
+    # Vary the population
+    offspring = fuel_varOr(pop, lambda_, prob_mating, prob_mutating, size_cut_offs)
+    # Evaluate the individuals with an invalid fitness
+    offspring_fitnesses = fuel_evaluate_multiple(offspring,year_fuel_costs_mat,year_fuel_emissions_mat,emissions_cap)
+    pop = pop + offspring
+    # Select the next generation population
+    pop_fitnesses = np.concatenate((pop_fitnesses, offspring_fitnesses))
+    selected_idxs = fuel_select(pop_fitnesses,mu)
+    pop = [pop[i] for i in selected_idxs]
+    pop_fitnesses = pop_fitnesses[selected_idxs] #selected_idxs
+    return pop,pop_fitnesses
