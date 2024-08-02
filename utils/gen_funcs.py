@@ -1,5 +1,4 @@
 import numpy as np
-from deap import creator
 from numba import njit,prange
 
 @njit
@@ -298,8 +297,6 @@ def mutate(individual, num_allowable_veh_sold_per_year, type_sum_mat):
                     negative_positions = np.where(depth_view < 0)
                     if len(negative_positions[0]) > 0:
                         current_depth = year_roll+current_service_years+1+view_i
-                        #neg_row = negative_positions[0][0]
-                        #neg_col = negative_positions[1][0]
                         pos_positions = np.column_stack(np.where(depth_view > 0))                    
                         #Repair neg index:
                         reduced_idv[current_depth:,veh_selected_row,size_roll*3 + veh_selected_col] = reduced_idv[current_depth:,veh_selected_row,size_roll*3 + veh_selected_col] + 1

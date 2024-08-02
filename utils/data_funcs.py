@@ -236,14 +236,13 @@ def construct_buy_sell_df(indvidual):
     sell_df = pd.DataFrame(sold_list,columns=header)
     return pd.concat([buy_df,sell_df])
     
-
+@st.cache_data
 def construct_fuel_df(fuel_opt_dict):
     fuel_map = ["Electricity","HVO","B20","LNG","BioLNG"]
     headers = ["Year","ID","Num_Vehicles","Type","Fuel","Distance_bucket","Distance_per_vehicle(km)"]
     veh_type_map = ["BEV","Diesel","Diesel","LNG","LNG"]
     rows_list = []
     for year_idx in fuel_opt_dict:
-        print(year_idx)
         for slot in fuel_opt_dict[year_idx]:
             year = year_idx + 2023
             veh_id = f"{veh_type_map[slot[4]]}_S{slot[0]+1}_{slot[2]+2023}"

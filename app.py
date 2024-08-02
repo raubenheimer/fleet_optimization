@@ -10,6 +10,17 @@ from utils.data_funcs import load_data, calc_cost_mats, construct_buy_sell_df, c
 dataframes = load_data()
 fuel_opt_demand, buy_cost_mat, insure_cost_mat, maintaine_cost_mat, sell_cost_mat, emissions_constraint_arr, min_veh_dict, max_evs_dict, fuel_cost_mat, fuel_cost_residual_mat, emissions_cost_mat, emissions_residual_mat, excess_range_arr = calc_cost_mats(dataframes)
 
+if 'pre_opt' not in st.session_state:
+    st.session_state.pre_opt = True
+    st.session_state.opt_completed_trigger = False
+
+if 'opt_completed' not in st.session_state:
+    st.session_state.opt_completed = False
+    st.session_state.indvidual = np.zeros((16,16,20))
+
+if st.session_state.opt_completed_trigger:
+    st.session_state.opt_completed = True
+
 def optimize_individual(n_gen):
     num_allowable_veh_sold_per_year = np.array([39., 40., 41., 42., 43., 44., 46., 46., 47., 49., 50., 51., 52., 54., 55., 57.])
     type_sum_mat = np.array([[1.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,1.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,1.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,1.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,1.,0.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,1.,0.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,1.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,1.,0.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,1.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,1.,0.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,1.,0.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,1.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,1.,0.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,1.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,1.,0.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,1.,0.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.,0.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.],[0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,0.,1.]], dtype=np.float64)
@@ -100,7 +111,6 @@ def optimize_fuel(indvidual,fuel_opt_demand,fuel_costs_mat,fuel_emissions_mat,em
         year_fuel_costs_mat=fuel_costs_mat[year_idx,:,:]
         year_fuel_emissions_mat=fuel_emissions_mat[year_idx,:,:]
         emissions_cap=year_emissions_cap
-        print(f"Year: {year_idx+2023}")
         pop = fuel_create_pop(pop_size=mu+lambda_,slots=fuel_slots, all_available_veh_arr=depth_slice[:year_idx+1,:])
         # Evaluate the individuals
         pop_fitnesses = fuel_evaluate_multiple(pop,year_fuel_costs_mat,year_fuel_emissions_mat,emissions_cap)
@@ -123,49 +133,64 @@ def optimize_fuel(indvidual,fuel_opt_demand,fuel_costs_mat,fuel_emissions_mat,em
         fuel_opt_dict[year_idx] = best_individual
         yield year_idx + 1, min_fitness, fuel_opt_dict
 
+def start_optimization():
+    st.session_state.pre_opt = False
+
+def complete_optimization():
+    st.session_state.opt_completed = True
 
 
-st.title("Fleet Optimization Demo")
-st.header("Input Data Viewer")
-# Selectbox for choosing the dataframe
-selected_df = st.selectbox("Select a DataFrame to view", list(dataframes.keys()))
-st.dataframe(dataframes[selected_df])
+first_state = st.empty()
+opt_state = st.empty()
+completed_state = st.empty()
+if st.session_state.pre_opt:
+    with first_state.container():
+        st.title("Fleet Optimization Demo")
+        st.header("Input Data Viewer")
+        # Selectbox for choosing the dataframe
+        selected_df = st.selectbox("Select a DataFrame to view", list(dataframes.keys()))
+        st.dataframe(dataframes[selected_df])
+        st.header("Run Fleet Optimization")
+        st.subheader("Hyperparameter Selection")
+        st.session_state.ngen = st.number_input("Select number of generations to run", min_value=1, max_value=5000, value=200)
+        st.session_state.fuel_ngen = st.number_input("Select number of generations to run fuel optimization", min_value=1, max_value=20000, value=1000)
+        st.write(f"Number: {st.session_state.ngen}")
+        st.button("Start Optimization", on_click=start_optimization)
 
-st.header("Run Fleet Optimization")
-st.subheader("First Optimization Step")
-st.session_state.ngen = st.number_input("Select number of generations to run", min_value=1, max_value=5000, value=200)
-st.session_state.fuel_ngen = st.number_input("Select number of generations to run fuel optimization", min_value=1, max_value=20000, value=1000)
+else:
+    if not st.session_state.opt_completed:
+        with opt_state.container():
+            st.title("Optimization Running")
+            st.write("The optimization process has started. Please wait...")
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            for current_gen, fitness, hof_idv in optimize_individual(st.session_state.ngen):
+                progress_percent = current_gen/st.session_state.ngen
+                progress_bar.progress(progress_percent)
+                status_text.text(f"Generation {current_gen} completed with a minimum cost of {fitness}")
+            st.session_state.min_fitness = fitness
+            st.session_state.indvidual = hof_idv
+            status_text.text(f"General Optimization GA complete with minimum cost of {st.session_state.min_fitness}\n Starting Fuel Refinement GA...")
+            sub_df = construct_buy_sell_df(st.session_state.indvidual)
 
-st.write(f"Number: {st.session_state.ngen}")
-
-if st.button("Start Optimization"):
-    progress_bar = st.progress(0)
-    status_text = st.empty()
-    
-    for current_gen, fitness, hof_idv in optimize_individual(st.session_state.ngen):
-        progress_percent = current_gen/st.session_state.ngen
-        progress_bar.progress(progress_percent)
-        status_text.text(f"Generation {current_gen} completed with a minimum cost of {fitness}")
-    st.session_state.min_fitness = fitness
-    st.session_state.indvidual = hof_idv
-    status_text.text(f"Optimization complete with minimum cost of {st.session_state.min_fitness}")
-    sub_df = construct_buy_sell_df(st.session_state.indvidual)
-
-    for current_year, fitness, fuel_dict in optimize_fuel(st.session_state.indvidual,fuel_opt_demand,fuel_cost_residual_mat,emissions_residual_mat,emissions_constraint_arr, st.session_state.fuel_ngen):
-        progress_percent = current_year/16
-        progress_bar.progress(progress_percent)
-        status_text.text(f"Year {current_year+2022} fuel optimizationcompleted with a minimum cost of {fitness}")
-    st.session_state.fuel_dict = fuel_dict
-    status_text.text(f"Optimization complete with minimum cost of {st.session_state.min_fitness}")
-    fuel_df = construct_fuel_df(st.session_state.fuel_dict)
-    sub_df = pd.concat([sub_df, fuel_df]).reset_index(drop=True)
-    csv = convert_df_to_csv(sub_df)
-    opt_completed = True
-
-if opt_completed:
-    st.download_button(
-    label="Download submission as CSV",
-    data=csv,
-    file_name='submission.csv',
-    mime='text/csv',
-    )
+        for current_year, fitness, fuel_dict in optimize_fuel(st.session_state.indvidual,fuel_opt_demand,fuel_cost_residual_mat,emissions_residual_mat,emissions_constraint_arr, st.session_state.fuel_ngen):
+            progress_percent = current_year/16
+            progress_bar.progress(progress_percent)
+            status_text.text(f"Year {current_year+2022} fuel optimizationcompleted with a minimum cost of {fitness}")
+        st.session_state.fuel_dict = fuel_dict
+        status_text.text(f"Optimization complete with minimum cost of {st.session_state.min_fitness}")
+        fuel_df = construct_fuel_df(st.session_state.fuel_dict)
+        st.session_state.sub_df = pd.concat([sub_df, fuel_df]).reset_index(drop=True)
+        st.session_state.opt_completed_trigger = True
+        st.rerun()
+        
+    if st.session_state.opt_completed:
+        with completed_state.container():
+            st.title("Optimization Completed!")
+            st.download_button(
+            label="Download submission as CSV",
+            data=convert_df_to_csv(st.session_state.sub_df),
+            file_name='submission.csv',
+            mime='text/csv',
+            )
