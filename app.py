@@ -5,6 +5,7 @@ import numpy as np
 from utils.gen_funcs import create_pop, evaluate_multiple, varOr, select, fuel_evaluate_multiple, fuel_create_pop, fuel_iter_gen
 from utils.data_funcs import load_data, calc_cost_mats, construct_buy_sell_df, construct_fuel_df, convert_df_to_csv
 
+
 # python -m streamlit run app.py
 # Load dataframes
 dataframes = load_data()
@@ -154,7 +155,6 @@ if st.session_state.pre_opt:
         st.subheader("Hyperparameter Selection")
         st.session_state.ngen = st.number_input("Select number of generations to run", min_value=1, max_value=5000, value=200)
         st.session_state.fuel_ngen = st.number_input("Select number of generations to run fuel optimization", min_value=1, max_value=20000, value=1000)
-        st.write(f"Number: {st.session_state.ngen}")
         st.button("Start Optimization", on_click=start_optimization)
 
 else:
@@ -170,6 +170,7 @@ else:
                 progress_bar.progress(progress_percent)
                 status_text.text(f"Generation {current_gen} completed with a minimum cost of {fitness}")
             st.session_state.min_fitness = fitness
+            np.save("indv.npy",hof_idv)
             st.session_state.indvidual = hof_idv
             status_text.text(f"General Optimization GA complete with minimum cost of {st.session_state.min_fitness}\n Starting Fuel Refinement GA...")
             sub_df = construct_buy_sell_df(st.session_state.indvidual)

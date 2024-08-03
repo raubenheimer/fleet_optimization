@@ -223,7 +223,7 @@ def construct_buy_sell_df(indvidual):
     buy_df = pd.DataFrame(bought_list,columns=header)
     # Format Sells
     sold_list = []
-    sold_arr = get_sold_arr(indv_types)
+    sold_arr = get_sold_arr(indvidual)
     for year_idx, sold_in_year in enumerate(sold_arr):
         year = year_idx + 2023
         for sold_year_idx, sold_in_row in enumerate(sold_in_year):

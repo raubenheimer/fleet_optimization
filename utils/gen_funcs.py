@@ -222,10 +222,9 @@ def evaluate(individual, buy_cost_mat, insure_cost_mat, maintaine_cost_mat, fuel
 
 @njit
 def mate(ind1, ind2):
-    # roll size swaps
     swap_roll_1 = np.random.randint(0,4)
-    ind1[:, :, swap_roll_1*5:swap_roll_1*5+5], ind2[:, :, swap_roll_1*5:swap_roll_1*5+5] = ind2[:, :, swap_roll_1*5:swap_roll_1*5+5].copy(), ind1[:, :, swap_roll_1*5:swap_roll_1*5+5].copy()
-    return ind1, ind2
+    ind1[:, :, swap_roll_1*5:swap_roll_1*5+5] = ind2[:, :, swap_roll_1*5:swap_roll_1*5+5]
+    return ind1
 
 @njit
 #UPDATE SIZE RANGE!!!!!!!!!!!!!!!
@@ -432,9 +431,9 @@ def varOr(population, lambda_, cxpb, mutpb, num_allowable_veh_sold_per_year, typ
         if op_choice < cxpb:
             mate_idxs = np.random.choice(pop_size, 2, replace=False)
             #ind1, ind2 = [np.copy(i) for i in np.random.choice(population, 2, replace=False)]
-            ind1 = population[mate_idxs[0]]
+            ind1 = np.copy(population[mate_idxs[0]])
             ind2 = population[mate_idxs[1]]
-            ind1, ind2 = mate(ind1, ind2)
+            ind1 = mate(ind1, ind2)
             offspring.append(ind1)
         # Apply mutation    
         elif op_choice < cxpb + mutpb:        
@@ -469,13 +468,13 @@ def fuel_evaluate(individual,year_fuel_costs_mat,year_fuel_emissions_mat,emissio
         emissions += year_fuel_emissions_mat[slot_model_year,(slot_size*5)+slot_fuel]*slot_range
         if slot_fuel  == 0 and slot_model_year < 9:
             if slot_model_year <= 2 and slot_bucket > 0:
-                fuel_cost += 500000
+                fuel_cost += 5000000
             elif slot_model_year <= 5 and slot_bucket > 1:
-                fuel_cost += 500000
+                fuel_cost += 5000000
             elif slot_model_year <= 8 and slot_bucket > 2:
-                fuel_cost += 500000
+                fuel_cost += 5000000
     if emissions > emissions_cap:
-        fitness = fuel_cost + 500000
+        fitness = fuel_cost + 5000000
     else:
         fitness = fuel_cost
     return fitness
@@ -572,7 +571,7 @@ def fuel_varOr(population, lambda_, cxpb, mutpb, size_cut_offs):
         # Apply crossover
         if op_choice < cxpb:
             mate_idxs = np.random.choice(pop_size, 2, replace=False)
-            ind1 = population[mate_idxs[0]]
+            ind1 = np.copy(population[mate_idxs[0]])
             ind2 = population[mate_idxs[1]]
             ind1 = fuel_mate(ind1, ind2, size_cut_offs)
             offspring.append(ind1)
