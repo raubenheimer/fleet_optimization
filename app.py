@@ -5,7 +5,8 @@ import numpy as np
 from utils.gen_funcs import create_pop, evaluate_multiple, varOr, select, fuel_evaluate_multiple, fuel_create_pop, fuel_iter_gen
 from utils.data_funcs import load_data, calc_cost_mats, construct_buy_sell_df, construct_fuel_df, convert_df_to_csv
 
-
+# np.set_printoptions(threshold=np.inf)
+# np.set_printoptions(linewidth=200)
 # python -m streamlit run app.py
 # Load dataframes
 dataframes = load_data()
@@ -153,8 +154,41 @@ if st.session_state.pre_opt:
         st.dataframe(dataframes[selected_df])
         st.header("Run Fleet Optimization")
         st.subheader("Hyperparameter Selection")
-        st.session_state.ngen = st.number_input("Select number of generations to run", min_value=1, max_value=5000, value=200)
-        st.session_state.fuel_ngen = st.number_input("Select number of generations to run fuel optimization", min_value=1, max_value=20000, value=1000)
+        st.info(
+            """
+            ### Optimization Instructions
+            There are two stages of the optimization process:
+            1. **General Optimization GA**: This stage sets the groundwork for optimization.
+            2. **Fuel Refinement GA**: This stage refines the fuel efficiency allocation.
+            
+            The default input values are the suggested minimums for effective optimization. 
+            Increasing these values can lead to better optimization results, but the process will take longer.
+            If you want really good results it is suggested that:
+            1. **Increase Generations**: It is specifically suggested to increase the General Optimization GA's generations to 1000+
+            2. **Run on Beefier Machine**: This demo is running on Streamlit Cloud's free tier. The demo can be cloned from the [Fleet Opt Repo](https://github.com/raubenheimer/fleet_optimization).
+            """
+        )
+
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.session_state.ngen = st.number_input(
+                "General Optimization GA generations",
+                min_value=1,
+                max_value=5000,
+                value=200,
+                help="Select the number of generations that the General Optimization GA should optimize for"
+            )
+        
+        with col2:
+            st.session_state.fuel_ngen = st.number_input(
+                "Fuel Refinement GA generations",
+                min_value=1,
+                max_value=20000,
+                value=1000,
+                help="Select the number of generations that the Fuel Refinement GA should optimize for"
+            )
+
         st.button("Start Optimization", on_click=start_optimization)
 
 else:
@@ -170,7 +204,6 @@ else:
                 progress_bar.progress(progress_percent)
                 status_text.text(f"Generation {current_gen} completed with a minimum cost of {fitness}")
             st.session_state.min_fitness = fitness
-            np.save("indv.npy",hof_idv)
             st.session_state.indvidual = hof_idv
             status_text.text(f"General Optimization GA complete with minimum cost of {st.session_state.min_fitness}\n Starting Fuel Refinement GA...")
             sub_df = construct_buy_sell_df(st.session_state.indvidual)

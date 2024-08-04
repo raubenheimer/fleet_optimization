@@ -57,7 +57,7 @@ def calc_cost_mats(dataframes):
     buy_cost_mat = np.zeros((16,16,12)).astype(int)
     for depth in range(len(buy_cost_mat[:,1,:])):
         buy_cost_mat[depth,depth,:] = veh_cost_mat[depth,:]
-
+    
     # insure_cost_mat
     insurance_df = cost_profiles_df[["End of Year","Insurance Cost %"]].copy()
     penalties = []
