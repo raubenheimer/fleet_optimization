@@ -1,6 +1,6 @@
 ---
-title: "Optimizing Fleet Transition Strategies for Sustainable Energy"
-subtitle: "An In-depth Exploration of Genetic Algorithms for Fleet Decarbonization"
+title: "Optimizing Fleet Transition for Decarbonization Strategies"
+subtitle: "An Exploration of Genetic Algorithms for Fleet Decarbonization"
 author: "James Raubenheimer (Fleeting)"
 date: "2024-08-04"
 team: "Team Fleeting"
@@ -14,7 +14,7 @@ header-includes:
 
 # Abstract
 
-This is my comprehensive document submission for Shell.ai's Hackathon for Sustainableand Affordable Energy round 2. This document contains an overview of my solution to the fleet transistion optimization problem. It consists of two genetic algoritms. A simple UI interface for the optimized code is hosted on [Streamlit Cloud](https://fleetoptimization-6gsd62jyk6xth3zdiacirj.streamlit.app/). The computational recource provided by Streamlit's free tier is limited so it is reccommended to run the code locally by cloning it from my [Fleet Opt Repo](https://github.com/raubenheimer/fleet_optimization).
+This is my comprehensive submission for Shell.ai's Hackathon for Sustainable and Affordable Energy round 2. This document contains an overview of my solution to the fleet transition optimization problem. It consists of two genetic algorithms. A simple UI interface for the optimized code is hosted on [Streamlit Cloud](https://fleetoptimization-6gsd62jyk6xth3zdiacirj.streamlit.app/). The computational resource provided by Streamlit's free tier is limited so it is recommended to run the code locally by cloning it from my [Fleet Opt Repo](https://github.com/raubenheimer/fleet_optimization).
 
 \newpage
 # Introduction

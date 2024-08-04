@@ -153,7 +153,6 @@ if st.session_state.pre_opt:
         selected_df = st.selectbox("Select a DataFrame to view", list(dataframes.keys()))
         st.dataframe(dataframes[selected_df])
         st.header("Run Fleet Optimization")
-        st.subheader("Hyperparameter Selection")
         st.info(
             """
             ### Optimization Instructions
@@ -168,7 +167,7 @@ if st.session_state.pre_opt:
             2. **Run on Beefier Machine**: This demo is running on Streamlit Cloud's free tier. The demo can be cloned from the [Fleet Opt Repo](https://github.com/raubenheimer/fleet_optimization).
             """
         )
-
+        st.subheader("Hyperparameter Selection")
         col1, col2 = st.columns(2)
         
         with col1:
